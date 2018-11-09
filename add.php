@@ -41,75 +41,7 @@ $app_codes = $media->get_app_codes();
 				<textarea class="form-control" cols="80" id="Description" name="Description" rows="5" placeholder="Enter Product Description"></textarea>                 
 			</div>
 		</div>
-
-		<div class="form-row">
-			<div class="form-col-label">
-				<label class="control-label" for="Category">Category</label>
-			</div>
-
-			<div class="form-col-input">
-				<select id="Category" name="Category" size="5">
-				<option selected="selected" value="">-- Select Category --</option>
-				<option value="assets">Assets</option>
-				<option value="emailblasts">Email Blasts</option>
-				<option value="file">Files</option>
-				<option value="m-lmc">M-LMC</option>
-				</select>                   
-			</div>
-		</div>               
-		<div class="form-row">
-			<div class="form-col-label">
-				<label class="control-label" for="SalesForceId">SalesForceId</label>
-			</div>
-
-			<div class="form-col-input">
-				<input class="form-control text-box single-line" id="SalesForceId" name="SalesForceId" type="text" value="" />
-			</div>
-		</div>
-		<div class="form-row">
-			<div class="form-col-label">
-				<label class="control-label" for="AlternateTrackingId">AlternateTrackingId</label>
-			</div>
-
-			<div class="form-col-input">
-				<input class="form-control text-box single-line" id="AlternateTrackingId" name="AlternateTrackingId" type="text" value="" />
-			</div>
-		</div>	
-
-
-		<div class="form-row">
-			<div class="form-col-label">
-				<label class="control-label" for="AppCode">App Code</label>
-			</div>
-
-			<div class="form-col-input">				
-				<select class="form-control" id="AppCode" multiple="multiple" name="AppCode[]" size="10">
-					<option selected="selected" value="">-- Select App Code --</option>
-					<?php foreach( $app_codes as $app_code){ ?>
-						<option value="<?php print $app_code['ID'];?>">(<?php print $app_code['AppCode'];?>) <?php print $app_code['AppName'];?></option>
-					<?php }	?>
-				</select>
-
-			</div>
-		</div>
 		
-		<div class="form-row">
-			<div class="form-col-label">
-				<label class="control-label" for="ProductGroup">Product Group</label>
-			</div>
-			<div class="form-col-input">
-				<select class="form-control" id="ProductGroup" name="ProductGroup" size="8">
-					<option selected="selected" value="">-- Select Product Group --</option>
-					<option value="Compass">Compass</option>
-					<option value="Laser Diode Module">Laser Diode Module</option>
-					<option value="MP System">MP System</option>
-					<option value="MP Tool">MP Tool</option>
-					<option value="Obis">Obis</option>
-					<option value="Sapphire">Sapphire</option>
-					<option value="Unknown">Unknown</option>
-				</select>
-			</div>
-		</div>
 		
 		<div class="form-row">
 			<div class="form-col-label">
