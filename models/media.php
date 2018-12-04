@@ -7,6 +7,7 @@ class Media extends Database{
 	protected $view_app_codes = "mm_app_codes";
 	protected $media = "mm_media";
 	protected $media_attributes = "mm_media_attributes";
+	protected $media_tags = "mm_media_tags";
 	
 	function __construct(){
 		$this->conn = parent::__construct(); // get db connection from Database model
@@ -14,6 +15,9 @@ class Media extends Database{
 		//print __CLASS__;
 	}
 	
+	/**
+	* @param array $data (user,action,object,previous_data,update_data)
+	*/
 	public function log_action($data){
 		parent::log_admin_action($data);
 	}
@@ -33,29 +37,28 @@ class Media extends Database{
 	* There needs to be record created for each attribute that is given
 	* Example: Title, Description, and Asset is given. There will be 3 records
 	* @param array $data
+	* @return array $result
 	*/
 	public function add($data){
 		extract($data);
-		$stmt = $this->conn->prepare("INSERT INTO `".$this->media."` (Title,Description,Type) VALUES (:Title, :Description, :Type)");
+		$stmt = $this->conn->prepare("INSERT INTO `".$this->media."` (Title,Description,Type,Saved_Media) VALUES (:Title, :Description, :Type, :Saved_Media)");
 		$stmt->bindParam(':Title',$title, PDO::PARAM_STR);
 		$stmt->bindParam(':Description',$description, PDO::PARAM_STR);
 		$stmt->bindParam(':Type',$type, PDO::PARAM_STR);
+		$stmt->bindParam(':Saved_Media',$saved_media, PDO::PARAM_STR);
 		
 		$title =  $data['Title'];
 		$description = $data['Description'];
 		$type = $data['Type'];
-		//$user = $data['user'];
+		$saved_media = $data['saved_media'];
+
 		if($stmt->execute()){
-			$media_id = $this->conn->lastInsertId();
-			// call method to add attributes of given media
-			// pass the array of attribute values
-			// add the new media id
-			$data['ID'] = $media_id;
-			unset($data['Title']);
-			unset($data['Description']);
-			unset($data['Type']);
-			$this->add_media_attributes($data);
-			return true;
+			$data['ID'] = $this->conn->lastInsertId();
+			$this->add_media_tags($data); // add tags for given media
+			$media_attribs = array("ID"=>$data['ID'],"attributes"=>$data);
+			$this->add_media_attributes($media_attribs); // add attributes of given media
+			$result = array("ID"=>$data['ID'],"result"=>true);
+			return $result;
 			}else{ return false; }		
 	}
 
@@ -66,16 +69,57 @@ class Media extends Database{
 	*
 	*/
 	private function add_media_attributes($data){
-		print_r($data);
+		unset($data['attributes']['ID']);
+		unset($data['attributes']['Tags']);
+		unset($data['attributes']['saved_media']);
+		unset($data['attributes']['Title']);
+		unset($data['attributes']['Description']);
+		unset($data['attributes']['Type']);
+		foreach($data['attributes'] as $key=>$value){
+			$stmt = $this->conn->prepare("INSERT INTO `".$this->media_attributes."` (Media_ID,Attribute, Attribute_Value) VALUES (:Media_ID, :Attribute, :Attribute_Value)");
+			$stmt->bindParam(':Media_ID',$media_id, PDO::PARAM_INT);
+			$stmt->bindParam(':Attribute',$attribute, PDO::PARAM_STR);
+			$stmt->bindParam(':Attribute_Value',$attribute_value, PDO::PARAM_STR);
+			
+			$media_id =  $data['ID'];
+			$attribute = $key;
+			$attribute_value = $value;
+			$stmt->execute();
+		}		
+	}
+	
+	/**
+	* Add tags for Media
+	* @param array $media
+	*/
+	private function add_media_tags($data){
+		$tags_array = explode(" ",$data['Tags']);
+		foreach($tags_array as $value){
+			$stmt = $this->conn->prepare("INSERT INTO `".$this->media_tags."` (Media_ID,Tag) VALUES (:Media_ID, :Tag)");
+			$stmt->bindParam(':Media_ID',$media_id, PDO::PARAM_INT);
+			$stmt->bindParam(':Tag',$tag, PDO::PARAM_STR);
+			
+			$media_id =  $data['ID'];
+			$tag =  $value;
+			$stmt->execute();
+		}
 	}
 	
 	/**
 	* Update Document/Asset
-	* @param array $data
+	* @param array $data ( field = field to be updated; field_value = new value of field )
 	* @return integer $return
 	*/
-	public function update(){
+	public function update($data){ print_r($data);
+		extract($data); 
+		$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `Saved_Media`=:Saved_Media WHERE `Id`=:Id");
+		$stmt->bindParam(':Saved_Media',$saved_media, PDO::PARAM_STR);
+		$stmt->bindParam(':Id',$id, PDO::PARAM_INT);
 		
+		$id =  $data['id'];
+		$saved_media = $data['saved_media'];
+		
+		$stmt->execute();
 	}
 	
 	/**
