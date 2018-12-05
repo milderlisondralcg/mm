@@ -20,7 +20,7 @@ use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Blob\Models\CreateContainerOptions;
 use MicrosoftAzure\Storage\Blob\Models\PublicAccessType;
 
-$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('ACCOUNT_NAME').";AccountKey=".getenv('ACCOUNT_KEY');
+$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('BLOB_NAME').";AccountKey=".getenv('BLOB_KEY');
 $blobClient = BlobRestProxy::createBlobService($connectionString);
 
 /***************************************************************/
@@ -32,8 +32,6 @@ $uploads_path = "../uploads/";
 
 if($_FILES){ print_r($_FILES);
 	$valid_extensions = array('jpeg', 'jpg', 'png', 'gif', 'bmp' , 'pdf' , 'doc' , 'ppt','tiff','zip','csv','xls','xlsx','sql','txt'); // valid extensions
-	
-	//$path = '../uploads/'; // upload directory
 
 	if(!empty($_POST['name']) || !empty($_POST['email']) || $_FILES['file_upload']){
 		$uploaded_filename = $_FILES['file_upload']['name'];
@@ -42,17 +40,16 @@ if($_FILES){ print_r($_FILES);
 		// get uploaded file's extension
 		$ext = strtolower(pathinfo($uploaded_filename, PATHINFO_EXTENSION));
 
-		// can upload same image using rand function
-		//$final_image = rand(1000,1000000)."-".$img;
-
 		// check's valid format
 		if(in_array($ext, $valid_extensions)) { 
-			//$final_image = strtolower($final_image); 
-			//$final_path = $uploads_path.$final_image; 
+
 			$moved_filename = trim(strtolower($uploaded_filename));
 			$final_path = $uploads_path.$moved_filename; 
 
 			if(move_uploaded_file($tmp,$final_path)) {
+				
+				// Determine file category
+				$file_category = trim($_POST['Category']);
 				$file_mime_type = mime_content_type($final_path);
 				$_POST['saved_media'] = $moved_filename;
 				$result = $media->add($_POST);
@@ -62,7 +59,7 @@ if($_FILES){ print_r($_FILES);
 				
 				if( $result['result'] == true){
 					$azure_filename = strtolower(str_replace(" " ,"-",$_POST['Title'])) . "-" . $result['ID']. "." . $ext;
-					// Need to update the record with the filename actually stored in Azure
+					// Update the record with the filename actually stored in Azure
 					$update_data = array("saved_media"=>$azure_filename,"id"=>$result['ID']);
 					$media->update($update_data);
 					$containerName = "files";
