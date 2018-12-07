@@ -9,6 +9,7 @@ class Media extends Database{
 	protected $media_attributes = "mm_media_attributes";
 	protected $media_tags = "mm_media_tags";
 	
+	
 	function __construct(){
 		$this->conn = parent::__construct(); // get db connection from Database model
 
@@ -22,9 +23,26 @@ class Media extends Database{
 		parent::log_admin_action($data);
 	}
 	
+	/**
+	* get_media_all
+	* Retrieve all products
+	*
+	*/
+	public function get_media_all(){
+		$stmt = $this->conn->prepare("SELECT `MediaID`,`Title`,`Description`,`Category`,`SeoUrl`,`SavedMedia` FROM `".$this->media."`");	
+		$stmt->execute();
+		$all_results = $stmt->fetchAll();
+		foreach( $all_results as $row ){
+			extract($row);
+			$results[] = array("Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia);
+		}
+		return $all_results;
+		
+	}
+	
 	
 	/**
-	* Get Media with give id
+	* Get Media with given id
 	* @param integer $id
 	*/
 	public function get($id){
@@ -41,25 +59,32 @@ class Media extends Database{
 	*/
 	public function add($data){
 		extract($data);
-		$stmt = $this->conn->prepare("INSERT INTO `".$this->media."` (Title,Description,Type,Saved_Media) VALUES (:Title, :Description, :Type, :Saved_Media)");
-		$stmt->bindParam(':Title',$title, PDO::PARAM_STR);
-		$stmt->bindParam(':Description',$description, PDO::PARAM_STR);
-		$stmt->bindParam(':Type',$type, PDO::PARAM_STR);
-		$stmt->bindParam(':Saved_Media',$saved_media, PDO::PARAM_STR);
-		
-		$title =  $data['Title'];
-		$description = $data['Description'];
-		$type = $data['Type'];
-		$saved_media = $data['saved_media'];
+		if ( $this->check_title($Title) == 0 ){
+			$stmt = $this->conn->prepare("INSERT INTO `".$this->media."` (Title,Description,Type,SavedMedia, Category) VALUES (:Title, :Description, :Type, :SavedMedia,:Category)");
+			$stmt->bindParam(':Title',$title, PDO::PARAM_STR);
+			$stmt->bindParam(':Description',$description, PDO::PARAM_STR);
+			$stmt->bindParam(':Type',$type, PDO::PARAM_STR);
+			$stmt->bindParam(':SavedMedia',$saved_media, PDO::PARAM_STR);
+			$stmt->bindParam(':Category',$category, PDO::PARAM_STR);
+			
+			$title =  $data['Title'];
+			$description = $data['Description'];
+			$type = $data['Type'];
+			$saved_media = $data['saved_media'];
+			$category = $data['Category'];
 
-		if($stmt->execute()){
-			$data['ID'] = $this->conn->lastInsertId();
-			$this->add_media_tags($data); // add tags for given media
-			$media_attribs = array("ID"=>$data['ID'],"attributes"=>$data);
-			$this->add_media_attributes($media_attribs); // add attributes of given media
-			$result = array("ID"=>$data['ID'],"result"=>true);
+			if($stmt->execute()){
+				$data['MediaID'] = $this->conn->lastInsertId();
+				$this->add_media_tags($data); // add tags for given media
+				$media_attribs = array("ID"=>$data['MediaID'],"attributes"=>$data);
+				$this->add_media_attributes($media_attribs); // add attributes of given media
+				$result = array("MediaID"=>$data['MediaID'],"result"=>true);
+				return $result;
+				}else{ return false; }	
+		}else{
+			$result = array("result"=>"duplicate title");
 			return $result;
-			}else{ return false; }		
+		}
 	}
 
 	/**
@@ -95,11 +120,11 @@ class Media extends Database{
 	private function add_media_tags($data){
 		$tags_array = explode(" ",$data['Tags']);
 		foreach($tags_array as $value){
-			$stmt = $this->conn->prepare("INSERT INTO `".$this->media_tags."` (Media_ID,Tag) VALUES (:Media_ID, :Tag)");
-			$stmt->bindParam(':Media_ID',$media_id, PDO::PARAM_INT);
+			$stmt = $this->conn->prepare("INSERT INTO `".$this->media_tags."` (MediaID,Tag) VALUES (:MediaID, :Tag)");
+			$stmt->bindParam(':MediaID',$media_id, PDO::PARAM_INT);
 			$stmt->bindParam(':Tag',$tag, PDO::PARAM_STR);
 			
-			$media_id =  $data['ID'];
+			$media_id =  $data['MediaID'];
 			$tag =  $value;
 			$stmt->execute();
 		}
@@ -110,14 +135,15 @@ class Media extends Database{
 	* @param array $data ( field = field to be updated; field_value = new value of field )
 	* @return integer $return
 	*/
-	public function update($data){ print_r($data);
+	public function update($data){
 		extract($data); 
-		$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `Saved_Media`=:Saved_Media WHERE `Id`=:Id");
-		$stmt->bindParam(':Saved_Media',$saved_media, PDO::PARAM_STR);
-		$stmt->bindParam(':Id',$id, PDO::PARAM_INT);
+		$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `SavedMedia`=:SavedMedia, `SeoUrl`=:SeoUrl WHERE `MediaID`=:MediaID");
+		$stmt->bindValue(':SavedMedia',$saved_media, PDO::PARAM_STR);
+		$stmt->bindValue(':MediaID',$media_id, PDO::PARAM_INT);
+		$stmt->bindValue(':SeoUrl',$seo_url, PDO::PARAM_STR);
 		
-		$id =  $data['id'];
-		$saved_media = $data['saved_media'];
+		//$media_id =  $data['MediaID'];
+		//$saved_media = $data['saved_media'];
 		
 		$stmt->execute();
 	}
@@ -143,6 +169,14 @@ class Media extends Database{
 		return $results;
 	}
 	
+	private function check_title( $title ){
+		$stmt = $this->conn->prepare("SELECT COUNT(*) FROM `".$this->media."` WHERE Title=:Title");
+		$stmt->bindParam(':Title',$title, PDO::PARAM_STR);
+		$stmt->execute();
+		$number_of_rows = $stmt->fetchColumn();
+		return $number_of_rows;
+		
+	}
 	
 	
 }
