@@ -29,27 +29,64 @@ class Media extends Database{
 	*
 	*/
 	public function get_media_all(){
-		$stmt = $this->conn->prepare("SELECT `MediaID`,`Title`,`Description`,`Category`,`SeoUrl`,`SavedMedia` FROM `".$this->media."`");	
+		$query = "SELECT `MediaID`,`Title`,`Description`,`Category`,`SeoUrl`,`SavedMedia`,`CreatedDateTime` FROM `".$this->media."` WHERE `Status`='Active'";
+		$stmt = $this->conn->prepare($query);	
 		$stmt->execute();
 		$all_results = $stmt->fetchAll();
-		foreach( $all_results as $row ){
-			extract($row);
-			$results[] = array("Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia);
+
+		if( count($all_results) > 0 ){
+			foreach( $all_results as $row ){
+				extract($row);
+				if( $this->get_media_tags($row['MediaID']) > 0){
+					$tags = implode( ", ",$this->get_media_tags($row['MediaID']) );
+					$results[] = array("MediaID"=>$row['MediaID'],"Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia,"CreatedDateTime"=>$CreatedDateTime,"Tags"=>$tags);
+				}else{
+					$results[] = array("MediaID"=>$row['MediaID'],"Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia,"CreatedDateTime"=>$CreatedDateTime,"Tags"=>"");
+				}
+				//$results[] = array("Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia,"CreatedDateTime"=>$CreatedDateTime);
+			}
+			return $results;
+		}else{
+			return 0;
 		}
-		return $all_results;
 		
 	}
 	
 	
 	/**
 	* Get Media with given id
-	* @param integer $id
+	* @param integer $MediaID
 	*/
-	public function get($id){
-		foreach($this->conn->query("SELECT * from `" . $this->view_products_by_categories . "` WHERE `ID` = '".$id."'" ) as $row) {
-			//print_r($row);
+	public function get($MediaID){
+		$query = "SELECT `Title`,`Description`,`Category`,`SavedMedia` FROM `".$this->media."` WHERE `MediaID`=:MediaID";
+		$stmt = $this->conn->prepare($query);
+		$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+		$stmt->execute();	
+		$result = $stmt->fetch(PDO::FETCH_ASSOC);
+		if( count($result) > 0 ){
+			return $result;
+		}else{
+			return 0;
 		}		
 	}
+	
+	/**
+	* Get Media with given url ( SeoUrl )
+	* @param string $seo_url
+	*/
+	public function get_media_by_url($seo_url){
+		$query = "SELECT * FROM `".$this->media."` WHERE `SeouRL`=:SeoUrl";
+		$stmt = $this->conn->prepare($query);
+		$stmt->bindValue(':SeoUrl',$seo_url, PDO::PARAM_STR);		
+		$stmt->execute();
+		$result = $stmt->fetch(PDO::FETCH_ASSOC);
+		if( count($result) > 0 ){
+			return $result;
+		}else{
+			return 0;
+		}
+	}
+	
 	/**
 	* Add New Media Asset
 	* There needs to be record created for each attribute that is given
@@ -75,7 +112,11 @@ class Media extends Database{
 
 			if($stmt->execute()){
 				$data['MediaID'] = $this->conn->lastInsertId();
-				$this->add_media_tags($data); // add tags for given media
+				// check to see if there Tags is available
+				if( strlen(trim($data['Tags'])) > 0 ){
+					$this->add_media_tags($data); // add tags for given media					
+				}
+				//$this->add_media_tags($data); // add tags for given media
 				$media_attribs = array("ID"=>$data['MediaID'],"attributes"=>$data);
 				$this->add_media_attributes($media_attribs); // add attributes of given media
 				$result = array("MediaID"=>$data['MediaID'],"result"=>true);
@@ -131,6 +172,31 @@ class Media extends Database{
 	}
 	
 	/**
+	* Get tags for given Media ID
+	*
+	*/
+	private function get_media_tags($media_id){
+		$query = "SELECT `Tag` from `" . $this->media_tags . "` WHERE `MediaID`=:MediaID";
+		$stmt = $this->conn->prepare($query);
+		$stmt->bindValue(':MediaID',$media_id, PDO::PARAM_STR);
+		$results = "";
+		if($stmt->execute()){
+			$all_results = $stmt->fetchAll();
+			if(count($all_results > 0)){
+				foreach($all_results as $row){
+					$results[] = $row['Tag'];
+				}
+				return $results;
+			}else{
+				return 0;
+			}
+		}else{
+			return 0;
+		}
+		
+	}
+	
+	/**
 	* Update Document/Asset
 	* @param array $data ( field = field to be updated; field_value = new value of field )
 	* @return integer $return
@@ -141,20 +207,36 @@ class Media extends Database{
 		$stmt->bindValue(':SavedMedia',$saved_media, PDO::PARAM_STR);
 		$stmt->bindValue(':MediaID',$media_id, PDO::PARAM_INT);
 		$stmt->bindValue(':SeoUrl',$seo_url, PDO::PARAM_STR);
-		
-		//$media_id =  $data['MediaID'];
-		//$saved_media = $data['saved_media'];
-		
+
 		$stmt->execute();
 	}
 	
 	/**
 	* Delete Document/Asset with given document id
-	* @param integer $id
+	* @param integer $MediaID
 	* @return integer $return
 	*/
-	public function delete(){
-		
+	public function delete($MediaID){
+		$query = "UPDATE `".$this->media."` SET `Status` = 'Archived' WHERE `MediaID`=:MediaID";
+		$stmt = $this->conn->prepare($query);
+		$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+		$stmt->execute();
+		/*
+		if( $stmt->rowCount() == 1 ){
+			//delete corresponding records in tags table
+			$query = "DELETE from `".$this->media_tags."` WHERE `MediaID`=:MediaID";
+			$stmt = $this->conn->prepare($query);
+			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+			$stmt->execute();
+
+			//delete corresponding records in attributes table
+			$query = "DELETE from `".$this->media_attributes."` WHERE `MediaID`=:MediaID";
+			$stmt = $this->conn->prepare($query);
+			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+			$stmt->execute();			
+		}
+		*/
+		return $stmt->rowCount();
 	}
 	
 	/**
