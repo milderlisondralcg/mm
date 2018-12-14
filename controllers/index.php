@@ -37,24 +37,7 @@ define("PROCESSED_URL", "https://www.coherent.com/mm/");
 if( isset($_POST['action']) ){
 	$action = $_POST['action'];
 }
-/** removed and migrated to use POST instead
-if( isset($_GET['action']) && $_GET['action'] == "get_home_list" ){
-	$media_array = array();
-	$result = $media->get_media_all();
-	if( $result !== 0){
-		foreach( $result as $row){
-			extract($row);
-			$link_to_file = DIRECT_TO_FILE_URL . $Category . "/" . $SavedMedia;
-			$last_modified = date("m/d/Y g:i A", strtotime($CreatedDateTime)); // friendly date and time format
-			$all_media[] = array("DT_RowId"=>$MediaID,"Title"=>$Title,"Category"=>$Category,"Description"=>$Description,"LinkToFile"=>$link_to_file,"LastModified"=>$last_modified,"Tags"=>$Tags,"Actions"=>"Delete");
-		}
-		print json_encode(array("data"=>$all_media));		
-	}else{
-		print json_encode(array("recordsTotal"=>0));
-	}
 
-}
-**/
 switch($action){
 	case "delete":
 		extract($_POST);
