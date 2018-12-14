@@ -28,20 +28,78 @@ $blobClient = BlobRestProxy::createBlobService($connectionString);
 
 // Uploads location
 $uploads_path = "../uploads/";
+$action = "";
 
 define("DIRECT_TO_FILE_URL", "https://pocmarcomgolfstorage.blob.core.windows.net/");
 define("PROCESSED_URL", "https://www.coherent.com/mm/");
 
+// check for action requested
+if( isset($_POST['action']) ){
+	$action = $_POST['action'];
+}
+/** removed and migrated to use POST instead
 if( isset($_GET['action']) && $_GET['action'] == "get_home_list" ){
 	$media_array = array();
 	$result = $media->get_media_all();
-	foreach( $result as $row){
-		extract($row);
-		$link_to_file = DIRECT_TO_FILE_URL . $Category . "/" . $SavedMedia;
-		$all_media[] = array("Title"=>$Title,"Category"=>$Category,"Description"=>$Description,"LinkToFile"=>$link_to_file);
+	if( $result !== 0){
+		foreach( $result as $row){
+			extract($row);
+			$link_to_file = DIRECT_TO_FILE_URL . $Category . "/" . $SavedMedia;
+			$last_modified = date("m/d/Y g:i A", strtotime($CreatedDateTime)); // friendly date and time format
+			$all_media[] = array("DT_RowId"=>$MediaID,"Title"=>$Title,"Category"=>$Category,"Description"=>$Description,"LinkToFile"=>$link_to_file,"LastModified"=>$last_modified,"Tags"=>$Tags,"Actions"=>"Delete");
+		}
+		print json_encode(array("data"=>$all_media));		
+	}else{
+		print json_encode(array("recordsTotal"=>0));
 	}
-	print json_encode(array("data"=>$all_media));
+
 }
+**/
+switch($action){
+	case "delete":
+		extract($_POST);
+		$media_info = $media->get($MediaID);
+		if($media->delete($MediaID) == 1){
+			// TODO: make a log entry
+			// TODO: delete azure file or move to archived directory
+			
+			$data['source_container'] = $media_info['Category'];
+			$data['source_blob'] = $media_info['SavedMedia'];
+			$data['destination_blob'] = $media_info['SavedMedia'];
+				switch($media_info['Category']){
+					case "file":
+						$data['destination_container'] = "file-archive";
+						break;
+					case "assets":
+						$data['destination_container'] = "assets-archive";
+						break;
+					case "m-lmc":
+						$data['destination_container'] = "m-lmc-archive";
+						break;								
+				}
+				extract($data);
+					//$blobClient->copyBlob($destination_container,$destination_blob, $source_container, $source_blob);	
+			move_media($data);
+			print json_encode(array("result"=>true));
+		}
+		break;
+	case "get_home_list":
+		//$media_array = array();
+		$result = $media->get_media_all();
+		if( $result !== 0){
+			foreach( $result as $row){
+				extract($row);
+				$link_to_file = DIRECT_TO_FILE_URL . $Category . "/" . $SavedMedia;
+				$last_modified = date("m/d/Y g:i A", strtotime($CreatedDateTime)); // friendly date and time format
+				$all_media[] = array("DT_RowId"=>$MediaID,"Title"=>$Title,"Category"=>$Category,"Description"=>$Description,"LinkToFile"=>$link_to_file,"LastModified"=>$last_modified,"Tags"=>$Tags,"ActionDelete"=>"Archive","ActionEdit"=>"Edit");
+			}
+			print json_encode(array("data"=>$all_media));		
+		}else{
+			print json_encode(array("recordsTotal"=>0));
+		}	
+		break;
+}
+
 if($_FILES){
 	$valid_extensions = array('jpeg', 'jpg', 'png', 'gif', 'bmp' , 'pdf' , 'doc' , 'ppt','tiff','zip','csv','xls','xlsx','sql','txt'); // valid extensions
 
@@ -91,4 +149,11 @@ if($_FILES){
 			print json_encode($result); 
 		}
 	}
+}
+
+// Move blob from one container to another
+function move_media($data){ print_r($data);
+	global $blobClient;
+	extract($data);
+	$blobClient->copyBlob($destination_container,$destination_blob, $source_container, $source_blob);	
 }
