@@ -10,6 +10,11 @@ function mmAutoloader($className){
 
 $media = new Media();
 
+$dl_log = 'dl_requests.log';
+if(filesize($dl_log) > 500000){
+	$new_filename = "dl_requests-" . time() . ".log";
+	rename("dl_requests.log",$new_filename);
+}
 $media_url = $_GET['media'];
 $media_info = $media->get_media_by_url($media_url);
 extract($media_info);
@@ -34,13 +39,17 @@ $blobfilename = $SavedMedia;
 $blob = $blobClient->getBlob($Category, $blobfilename);
 $download_filename = str_replace(" " , "", $Title);
 $download_filename = str_replace("-" , "", $download_filename) . "." . $extension;
-//$blob_properties = $blobClient->getBlobProperties($Category, $blobfilename);
-//print '<pre>'; print_r($blob_properties);
-//print '</pre>';
+
 header('Content-type: ' . $mime);
 header('Content-Disposition: attachment; filename="' .$download_filename . '"');
 fpassthru($blob->getContentStream());
 
+
+$handle = fopen($dl_log, 'a') or die('Cannot open file:  '.$dl_log);
+$created_datetime = date("Y-m-d h:i:s A", time());
+$data = $MediaID . "," . $Title . "," . $created_datetime . "," . $_SERVER['REMOTE_ADDR'] . "\r\n";
+fwrite($handle, $data);	
+				
 function detectByFileExtension($extension) {    
     $extensionToMimeTypeMap = getExtensionToMimeTypeMap();
 
