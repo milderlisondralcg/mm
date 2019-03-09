@@ -10,8 +10,15 @@ function mmAutoloader($className){
 
 $media = new Media();
 $app_codes = $media->get_app_codes(); 
-$media_info = $media->get(trim($_GET['mediaid'])); 
+$MediaID = trim($_GET['mediaid']);
+$media_info = $media->get($MediaID);
 extract($media_info);
+
+if( $_SERVER['SERVER_NAME'] == "charlie.coherent.com" ){
+	$direct_link = "https://pocmarcomgolfstorage.blob.core.windows.net/" . $Category . "/" . $SeoUrl;
+}else{
+	$direct_link = "https://content.coherent.com/" . $Category . "/" . $SeoUrl;
+}
 
 ?>
 <div class="main-wrapper">
@@ -23,7 +30,7 @@ extract($media_info);
         <div class="page-contents">
 
 
-	<form id="add-media" name="add-media" action="../_media_manager/controllers/index.php" method="post" enctype="multipart/form-data">
+	<form id="edit-media" name="edit-media" action="../_media_manager/controllers/index.php" method="post" enctype="multipart/form-data">
 	
 		<div class="form-row">
 			<div class="form-col-label">
@@ -45,25 +52,10 @@ extract($media_info);
 		
 		<div class="form-row">
 			<div class="form-col-label">
-				<label class="control-label" for="Category">Category</label>
-			</div>
- 			<div class="form-col-input">
-				<select id="Category" name="Category" size="5" required>
-				<option value="">-- Select Category --</option>
-				<option value="assets" <?php if($Category == "assets"){ echo 'selected'; } ?> >Assets</option>
-				<option value="emailblasts"  <?php if($Category == "assets"){ echo 'selected'; } ?>>Email Blasts</option>
-				<option value="file"  <?php if($Category == "assets"){ echo 'selected'; } ?> >Files</option>
-				<option value="m-lmc"  <?php if($Category == "assets"){ echo 'selected'; } ?> >M-LMC</option>
-				</select>                   
-			</div>
-		</div>  
-		
-		<div class="form-row">
-			<div class="form-col-label">
 				<label class="control-label" for="Tags">Tags ( separate tags by spaces ) </label>
 			</div>
 			<div class="form-col-input">
-				<input class="form-control text-box single-line" id="Tags" name="Tags" type="text" value="" />
+				<input class="form-control text-box single-line" id="Tags" name="Tags" type="text" value="<?php print $tags; ?>" />
 			</div>
 		</div>		
 
@@ -72,16 +64,17 @@ extract($media_info);
 				<label class="control-label" for="uploadImage">Media</label>
 			</div>			
 			<div class="form-col-input">
-				<!--<input id="uploadImage" type="file" accept="image/*" name="image" required/>-->
-				<input id="file_upload" type="file" name="file_upload" required/>
-				<div id="preview"></div><br>
+				<input id="file_upload" type="file" name="file_upload"/>
+				<div id="preview">Current File: <a href="<?php print $direct_link;?>" target="_blank"><?php print $direct_link;?></a></div><br>
 				<div id="upload_notification"></div>
 			</div>		
 		</div>
 		
-		<input type="submit" value="Add">
+		<input type="submit" value="Save">
 		<input type="button" id="clear_add_form" value="Reset">
 		<input type="hidden" name="Type" value="Document">
+		<input type="hidden" name="action" value="update">
+		<input type="hidden" name="MediaID" value="<?php print $MediaID; ?>">
 	</form>
 	
 	</div>

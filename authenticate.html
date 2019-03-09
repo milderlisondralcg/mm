@@ -1,0 +1,14 @@
+<?php 
+
+$userid =  $_GET['userid'];
+
+$user = $this->EE->session->userdata;
+
+if( $userid  ==  $user['member_id'] ){
+ $myarray = array("result"=>"ok");
+}
+
+
+header("Content-Type:application/json");
+print json_encode($myarray);
+?>

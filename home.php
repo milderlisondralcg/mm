@@ -58,9 +58,13 @@ include('includes/header.php');
 <script>
 
     $(document).ready(function () {
+
+		//format for the Last Modified Datetime columnDefs
+		 $.fn.dataTable.moment( 'MM/DD/YYYY' );
+		 
         var mydatatable = $('#media_list').DataTable({
 			"ajax": { 
-			 "url": "/_media_manager/controllers/",
+			 "url": "/_admin_mm/controllers/",
 			 "type": "POST",
 			 "data": {"action":"get_home_list" }
 			},
@@ -76,8 +80,10 @@ include('includes/header.php');
 			],
 			"columnDefs": [
 				{ className: "action_delete", "targets": [ 6 ] },
-				{ className: "action_edit", "targets": [ 7 ] }
-			  ]
+				{ className: "action_edit", "targets": [ 7 ] },
+				{ className: "direct_link", "targets": [ 3] }
+			  ],
+			"order": [[ 5, "desc" ]] // sort by Last Modified Date, descending
 		});
 		
 		$('#media_list tbody').on( 'click',  'td.action_delete', function () {			
@@ -85,7 +91,7 @@ include('includes/header.php');
 				if( confirm("Are you sure you want to Archive this Media asset?") ){
 					mydatatable.row( $(this).parents('tr') ).remove().draw(); // delete row from data table
 					// send request to delete from DB
-					$.post("/_media_manager/controllers/",{"MediaID":media_id,"action":"delete"});
+					$.post("/_admin_mm/controllers/",{"MediaID":media_id,"action":"delete"});
 				}
 		});	
 		
@@ -94,13 +100,20 @@ include('includes/header.php');
 			if( $(this).attr("id") == "action_edit" ){
 				console.log("redirect");
 			}
-			window.location.href = "/_media_manager/edit.php?mediaid=" + media_id;
-		});			
-
+			window.location.href = "/_admin_mm/edit.php?mediaid=" + media_id;
+		});		
+		
+		$('#media_list tbody').on( 'click',  'td.direct_link', function () {			
+			link = $(this).html();
+			window.open(link);
+		});
+		
     });
 
 </script>
-<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.15/datatables.min.js"></script>
+<script src="<?php print DIRECT_TO_FILE_URL; ?>assets/js/datatables/datatables.min.js"></script>
+<script src="<?php print DIRECT_TO_FILE_URL; ?>assets/js/datatables/moment.js"></script>
+<script src="<?php print DIRECT_TO_FILE_URL; ?>assets/js/datatables/datetime-moment.js"></script>
 
 <?php
 include('includes/footer.php');

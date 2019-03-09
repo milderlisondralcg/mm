@@ -5,7 +5,6 @@ spl_autoload_register('mmAutoloader');
 
 function mmAutoloader($className){
     $path = 'models/';
-
     include $path.$className.'.php';
 }
 
@@ -26,7 +25,7 @@ $app_codes = $media->get_app_codes();
 	
 		<div class="form-row">
 			<div class="form-col-label">
-				<label class="control-label" for="Title">Name</label>
+				<label class="control-label" for="Title">Media Title</label>
 			</div>
 
 			<div class="form-col-input">
@@ -42,6 +41,20 @@ $app_codes = $media->get_app_codes();
 			</div>
 		</div>
 		
+		<div class="form-row">
+			<div class="form-col-label">
+				<label class="control-label" for="Category">Category</label>
+			</div>
+ 			<div class="form-col-input">
+				<select id="Category" name="Category" size="5" required>
+				<option value="">-- Select Category --</option>
+				<option value="assets">Assets</option>
+				<option value="emailblasts">Email Blasts</option>
+				<option value="file">Files</option>
+				<option value="m-lmc">M-LMC</option>
+				</select>                   
+			</div>
+		</div>  
 		
 		<div class="form-row">
 			<div class="form-col-label">
@@ -57,13 +70,17 @@ $app_codes = $media->get_app_codes();
 				<label class="control-label" for="uploadImage">Media</label>
 			</div>			
 			<div class="form-col-input">
-				<input id="uploadImage" type="file" accept="image/*" name="image" required/>
+				<!--<input id="uploadImage" type="file" accept="image/*" name="image" required/>-->
+				<input id="file_upload" type="file" name="file_upload" required/>
 				<div id="preview"></div><br>
+				<div id="upload_notification"></div>
 			</div>		
 		</div>
 		
 		<input type="submit" value="Add">
 		<input type="button" id="clear_add_form" value="Reset">
+		<input type="hidden" name="Type" value="Document">
+		<input type="hidden" name="action" value="add">
 	</form>
 	
 	</div>
