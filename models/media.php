@@ -8,12 +8,11 @@ class Media extends Database{
 	protected $media = "mm_media";
 	protected $media_attributes = "mm_media_attributes";
 	protected $media_tags = "mm_media_tags";
-	
+	protected $ts = 0;
 	
 	function __construct(){
 		$this->conn = parent::__construct(); // get db connection from Database model
-
-		//print __CLASS__;
+		$this->ts = date("Y-m-d H:i:s",time()); // set current timestamp
 	}
 	
 	/**
@@ -37,6 +36,7 @@ class Media extends Database{
 		if( count($all_results) > 0 ){
 			foreach( $all_results as $row ){
 				extract($row);
+				//print $row['MediaID'] .  '  ' . print_r($this->get_media_tags($row['MediaID']),true);
 				if( $this->get_media_tags($row['MediaID']) > 0){
 					$tags = implode( ", ",$this->get_media_tags($row['MediaID']) );
 					$results[] = array("MediaID"=>$row['MediaID'],"Title"=>$row['Title'],"Category"=>$row['Category'],"Description"=>$row['Description'],"SavedMedia"=>$SavedMedia,"CreatedDateTime"=>$CreatedDateTime,"Tags"=>$tags);
@@ -58,12 +58,18 @@ class Media extends Database{
 	* @param integer $MediaID
 	*/
 	public function get($MediaID){
-		$query = "SELECT `Title`,`Description`,`Category`,`SavedMedia` FROM `".$this->media."` WHERE `MediaID`=:MediaID";
+		$query = "SELECT `Title`,`Description`,`Category`,`SavedMedia`,`SeoUrl` FROM `".$this->media."` WHERE `MediaID`=:MediaID";
 		$stmt = $this->conn->prepare($query);
 		$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
 		$stmt->execute();	
 		$result = $stmt->fetch(PDO::FETCH_ASSOC);
 		if( count($result) > 0 ){
+			if( $this->get_media_tags($MediaID) > 0){
+				$tags = implode( " ",$this->get_media_tags($MediaID));
+				$result['tags'] = $tags;
+			}else{ 
+				$result['tags'] = "";
+			}
 			return $result;
 		}else{
 			return 0;
@@ -75,7 +81,7 @@ class Media extends Database{
 	* @param string $seo_url
 	*/
 	public function get_media_by_url($seo_url){
-		$query = "SELECT * FROM `".$this->media."` WHERE `SeouRL`=:SeoUrl";
+		$query = "SELECT * FROM `".$this->media."` WHERE `SeoUrl`=:SeoUrl";
 		$stmt = $this->conn->prepare($query);
 		$stmt->bindValue(':SeoUrl',$seo_url, PDO::PARAM_STR);		
 		$stmt->execute();
@@ -121,7 +127,7 @@ class Media extends Database{
 				$this->add_media_attributes($media_attribs); // add attributes of given media
 				$result = array("MediaID"=>$data['MediaID'],"result"=>true);
 				return $result;
-				}else{ return false; }	
+				}else{ return false; }
 		}else{
 			$result = array("result"=>"duplicate title");
 			return $result;
@@ -171,6 +177,14 @@ class Media extends Database{
 		}
 	}
 	
+	private function delete_media_tags($MediaID){
+		$query = "DELETE FROM `".$this->media_tags."` WHERE `MediaID`=:MediaID";
+		$stmt = $this->conn->prepare($query);
+		$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->rowCount();
+	}	
+	
 	/**
 	* Get tags for given Media ID
 	*
@@ -192,8 +206,15 @@ class Media extends Database{
 			}
 		}else{
 			return 0;
-		}
-		
+		}		
+	}
+	
+	/**
+	* Get all distinct tags
+	* 
+	*/
+	public function get_tags(){
+		$query = "SELECT `Tag` from `" . $this->media_tags . "` WHERE `MediaID`=:MediaID";
 	}
 	
 	/**
@@ -203,13 +224,55 @@ class Media extends Database{
 	*/
 	public function update($data){
 		extract($data); 
-		$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `SavedMedia`=:SavedMedia, `SeoUrl`=:SeoUrl WHERE `MediaID`=:MediaID");
-		$stmt->bindValue(':SavedMedia',$saved_media, PDO::PARAM_STR);
-		$stmt->bindValue(':MediaID',$media_id, PDO::PARAM_INT);
-		$stmt->bindValue(':SeoUrl',$seo_url, PDO::PARAM_STR);
-
-		$stmt->execute();
+		if ( $this->check_title($Title,$MediaID) == 0 ){
+			$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `Title`=:Title, `Description`=:Description, `ModifiedDateTime`=:ModifiedDateTime WHERE `MediaID`=:MediaID");
+			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+			$stmt->bindValue(':Description',$Description, PDO::PARAM_INT);
+			$stmt->bindValue(':Title',$Title, PDO::PARAM_INT);
+			$stmt->bindValue(':ModifiedDateTime',$this->ts, PDO::PARAM_STR);
+			
+			if($stmt->execute()){
+				// check to see if there Tags is available
+				if( strlen(trim($data['Tags'])) > 0 ){
+					$this->delete_media_tags($MediaID);
+					$this->add_media_tags($data); // add tags for given media					
+				}
+				$result = array("MediaID"=>$MediaID,"result"=>true);
+				return true;
+				}else{ return false; }
+				
+		}else{
+			$result = array("result"=>"duplicate title");
+			return $result;
+		}
 	}
+	
+	/**
+	* Update Title and SeoUrl
+	* @param array $data ( field = field to be updated; field_value = new value of field )
+	* @return integer $return
+	*/
+	public function update_savedmedia_seourl($data){
+		extract($data); 
+		//if ( $this->check_title($Title,$MediaID) == 0 ){
+			$stmt = $this->conn->prepare("UPDATE `".$this->media."` SET `SavedMedia`=:SavedMedia, `SeoUrl`=:SeoUrl, `ModifiedDateTime`=:ModifiedDateTime WHERE `MediaID`=:MediaID");
+			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
+			$stmt->bindValue(':SavedMedia',$SavedMedia, PDO::PARAM_INT);
+			$stmt->bindValue(':SeoUrl',$SeoUrl, PDO::PARAM_STR);
+			$stmt->bindValue(':ModifiedDateTime',$this->ts, PDO::PARAM_STR);			
+			
+			if($stmt->execute()){
+				$result = array("MediaID"=>$MediaID,"result"=>true);
+				return true;
+			}else{ 
+				return false; 
+			}
+				
+		//}else{
+			//$result = array("result"=>"duplicate title");
+			//return $result;
+		//}
+	}	
 	
 	/**
 	* Delete Document/Asset with given document id
@@ -221,21 +284,6 @@ class Media extends Database{
 		$stmt = $this->conn->prepare($query);
 		$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
 		$stmt->execute();
-		/*
-		if( $stmt->rowCount() == 1 ){
-			//delete corresponding records in tags table
-			$query = "DELETE from `".$this->media_tags."` WHERE `MediaID`=:MediaID";
-			$stmt = $this->conn->prepare($query);
-			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
-			$stmt->execute();
-
-			//delete corresponding records in attributes table
-			$query = "DELETE from `".$this->media_attributes."` WHERE `MediaID`=:MediaID";
-			$stmt = $this->conn->prepare($query);
-			$stmt->bindValue(':MediaID',$MediaID, PDO::PARAM_INT);
-			$stmt->execute();			
-		}
-		*/
 		return $stmt->rowCount();
 	}
 	
@@ -251,8 +299,14 @@ class Media extends Database{
 		return $results;
 	}
 	
-	private function check_title( $title ){
-		$stmt = $this->conn->prepare("SELECT COUNT(*) FROM `".$this->media."` WHERE Title=:Title");
+	private function check_title( $title, $MediaID = 0 ){
+		if( $MediaID != 0 ){
+			$stmt = $this->conn->prepare("SELECT COUNT(*) FROM `".$this->media."` WHERE Title=:Title AND `MediaID` <> :MediaID");
+			$stmt->bindParam(':MediaID',$MediaID, PDO::PARAM_INT);
+		}else{
+			$stmt = $this->conn->prepare("SELECT COUNT(*) FROM `".$this->media."` WHERE Title=:Title");	
+		}
+		
 		$stmt->bindParam(':Title',$title, PDO::PARAM_STR);
 		$stmt->execute();
 		$number_of_rows = $stmt->fetchColumn();
