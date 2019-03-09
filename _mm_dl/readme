@@ -1,1 +1,2 @@
-
+This directory contains the processor that will allow a user to either view or download an asset.
+This directory needs to be placed at the root of the web directory.
