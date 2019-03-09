@@ -37,7 +37,6 @@ if( $_SERVER['SERVER_NAME'] == "charlie.coherent.com" ){
 	$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('MM_BLOB_NAME').";AccountKey=".getenv('MM_BLOB_KEY'); // Golf/Development
 }else{
 	$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('MM_BLOB_NAME_PROD').";AccountKey=".getenv('MM_BLOB_KEY_2_PROD'); // COHRstage
-	//$connectionString = "DefaultEndpointsProtocol=https;AccountName=pocmarcomgolfstorage;AccountKey=GU42Ky8Y/xjuthrrkbgUjbjLH/5TU2sgezHCAWW4WxDGJa4VUVxT8teqraUNGFFsBtw1aKVJBUZY3fg155STDg=="; // Golf/Development
 }
 
 // Create blob client.
