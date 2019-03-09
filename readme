@@ -1,0 +1,1 @@
+These files should be insalled within the web root. The Expression Engine control panel should have a main level menu that points to that directory. In addition, the link should open a new tab/window.
