@@ -21,8 +21,16 @@ use MicrosoftAzure\Storage\Blob\Models\ListBlobsOptions;
 use MicrosoftAzure\Storage\Blob\Models\CreateContainerOptions;
 use MicrosoftAzure\Storage\Blob\Models\PublicAccessType;
 
-//$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('BLOB_NAME').";AccountKey=".getenv('BLOB_KEY'); // Golf/Development
-$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('BLOB_NAME_PROD').";AccountKey=".getenv('BLOB_KEY_2_PROD'); // Production
+// Create connection to BLOB Storage
+if( $_SERVER['SERVER_NAME'] == "charlie.coherent.com" ){
+	$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('MM_BLOB_NAME').";AccountKey=".getenv('MM_BLOB_KEY'); // Golf/Development
+	define("PROCESSED_URL", "https://charlie.coherent.com/go/");
+	define("DIRECT_TO_FILE_URL", "https://pocmarcomgolfstorage.blob.core.windows.net/"); // Golf
+}else{
+	$connectionString = "DefaultEndpointsProtocol=https;AccountName=".getenv('MM_BLOB_NAME_PROD').";AccountKey=".getenv('MM_BLOB_KEY_2_PROD'); // COHRstage
+	define("PROCESSED_URL", "https://cohrstage.coherent.com/go/");
+	define("DIRECT_TO_FILE_URL", "https://content.coherent.com/"); // Production
+}
 $blobClient = BlobRestProxy::createBlobService($connectionString);
 
 /***************************************************************/
@@ -31,10 +39,7 @@ $blobClient = BlobRestProxy::createBlobService($connectionString);
 // Uploads location
 $uploads_path = "../uploads/";
 $action = "";
-
-//define("DIRECT_TO_FILE_URL", "https://pocmarcomgolfstorage.blob.core.windows.net/"); // dev
-define("DIRECT_TO_FILE_URL", "https://cohrdownloads.blob.core.windows.net/"); // Production
-define("PROCESSED_URL", "https://charlie.coherent.com/view-media/");
+//define("DIRECT_TO_FILE_URL", "https://content.coherent.com/"); // Production
 
 // check for action requested
 if( isset($_POST['action']) ){
@@ -118,19 +123,19 @@ switch($action){
 	case "auth":
 		$member_last_activity = $auth->get_last_activity($MemberID);
 		extract($member_last_activity);
-		if( calc_ts_diff($last_activity) > getenv('AUTH_TIMEOUT') ){ // user has not been active inside EE control panel for more than 30 minutes
-			header("Location: /_media_manager/noaccess.php");
+		if( calc_ts_diff($last_activity) > getenv('MM_AUTH_TIMEOUT') ){ // user has not been active inside EE control panel for more than 30 minutes
+			header("Location: /_admin_mm/noaccess.php");
 		}else{
 			// Set username in session
 			$_SESSION['username'] = $username;
 
-			header("Location: /_media_manager/index.php");
+			header("Location: /_admin_mm/index.php");
 		}
 		break;
 	case "add":
 
 			if($_FILES){
-				$valid_extensions = array('jpeg', 'jpg', 'png', 'gif', 'bmp' , 'pdf' , 'doc' , 'ppt','tiff','zip','csv','xls','xlsx','sql','txt'); // valid extensions
+				$valid_extensions = array('jpeg', 'jpg', 'png', 'gif', 'bmp' , 'pdf' , 'doc' , 'ppt','tiff','zip','csv','xls','xlsx','sql','txt','gz'); // valid extensions
 
 				if(!empty($_POST['name']) || !empty($_POST['email']) || $_FILES['file_upload']){
 					$uploaded_filename = $_FILES['file_upload']['name'];
@@ -158,8 +163,18 @@ switch($action){
 								$log_data = array("user"=>$_SESSION['username'],"action"=>"Add new media","object"=>$result['MediaID'],"previous_data"=>"N/A","updated_data"=>$file_mime_type);
 								$media->log_action($log_data); // Log admin action
 							
-								$seo_url = $result['MediaID'] . "-" . strtolower(str_replace(" " ,"-",$_POST['Title'])) . "-" . $ext;
-								$azure_filename = $result['MediaID'] . "-" . strtolower(str_replace(" " ,"-",$_POST['Title'])) . "." . $ext;
+								$title_temp = strtolower($_POST['Title']);
+								$title_temp = preg_replace('/[^a-zA-Z0-9\']/', '-', $title_temp); // remove special characters
+								$title_temp = str_replace("'", '', $title_temp); // remove apostrophes
+									
+								/* if(substr($title_temp,-1,1) == "-"){
+									$title_temp = substr($title_temp,0,strlen($title_temp) - 1);
+								} */
+								$title_temp = trim(preg_replace('/-+/', '-', $title_temp), '-'); // remove double dash and trailing dash
+
+								
+								$seo_url = $result['MediaID'] . "-" . $title_temp . "." . $ext;
+								$azure_filename = $result['MediaID'] . "-" . $title_temp . "." . $ext;
 								// Update the record with the filename actually stored in Azure and the properly formatted SeoUrl
 								$update_data = array("SavedMedia"=>$azure_filename,"MediaID"=>$result['MediaID'], "SeoUrl"=>$seo_url);
 								$media->update_savedmedia_seourl($update_data);
@@ -181,59 +196,19 @@ switch($action){
 				}
 			}	
 		break;
-}
-/* 
-if($_FILES){
-	$valid_extensions = array('jpeg', 'jpg', 'png', 'gif', 'bmp' , 'pdf' , 'doc' , 'ppt','tiff','zip','csv','xls','xlsx','sql','txt'); // valid extensions
-
-	if(!empty($_POST['name']) || !empty($_POST['email']) || $_FILES['file_upload']){
-		$uploaded_filename = $_FILES['file_upload']['name'];
-		$tmp = $_FILES['file_upload']['tmp_name'];
-
-		// get uploaded file's extension
-		$ext = strtolower(pathinfo($uploaded_filename, PATHINFO_EXTENSION));
-
-		// check's valid format
-		if(in_array($ext, $valid_extensions)) { 
-
-			$moved_filename = trim(strtolower($uploaded_filename));
-			$final_path = $uploads_path.$moved_filename; 
-
-			if(move_uploaded_file($tmp,$final_path)) {
-				
-				// Determine file category
-				$file_category = trim($_POST['Category']);
-				$file_mime_type = mime_content_type($final_path);
-				$_POST['saved_media'] = $moved_filename;
-				$result = $media->add($_POST);
-				
-				if( $result['result'] === true){
-
-					$log_data = array("user"=>$_SESSION['username'],"action"=>"Add new media","object"=>$result['MediaID'],"previous_data"=>"N/A","updated_data"=>$file_mime_type);
-					$media->log_action($log_data); // Log admin action
-				
-					$seo_url = $result['MediaID'] . "-" . strtolower(str_replace(" " ,"-",$_POST['Title'])) . "-" . $ext;
-					$azure_filename = $result['MediaID'] . "-" . strtolower(str_replace(" " ,"-",$_POST['Title'])) . "." . $ext;
-					// Update the record with the filename actually stored in Azure
-					$update_data = array("saved_media"=>$azure_filename,"media_id"=>$result['MediaID'], "seo_url"=>$seo_url);
-					$media->update($update_data);
-					$containerName = $file_category;
-					$content = fopen($final_path, "r");
-					//Upload media asset to Azure Blob Storage
-					$azure_upload_result = $blobClient->createBlockBlob($containerName, $azure_filename, $content);	
-					$result['direct_url'] =  DIRECT_TO_FILE_URL . $file_category . "/" . $azure_filename ;
-					$result['processed_url'] =  PROCESSED_URL . $seo_url ;
-					print json_encode($result);
-				}else{
-					print json_encode($result);
+	case "add_video":
+		print_r($_FILES);
+		if($_FILES){
+			$num_files_sent = count($_FILES['file_upload']['name']);
+			for( $i=0; $i<=$num_files_sent; $i++ ){
+				if( isset($_FILES['file_upload']['name'][$i]) ){
+					print $_FILES['file_upload']['name'][$i];
+					print "\r\n";
 				}
 			}
-		}else{
-			$result['result'] = 'invalid';
-			print json_encode($result); 
 		}
-	}
-} */
+		break;
+}
 
 // copy blob from one container to another
 function copy_media($data){
